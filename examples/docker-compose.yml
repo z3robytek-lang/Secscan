@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: myapp:latest
+    container_name: myapp-web
+    
+    # Network configuration
+    networks:
+      - app-network
+    
+    # Resource limits
+    mem_limit: 512m
+    memswap_limit: 768m
+    cpus: 0.5
+    
+    # Port mapping
+    ports:
+      - "8080:8080"
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Read-only filesystem
+    read_only: false
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:15-alpine
+    container_name: myapp-db
+    
+    networks:
+      - app-network
+    
+    mem_limit: 256m
+    memswap_limit: 512m
+    
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_DB: appdb
+    
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    
+    restart: unless-stopped
+    
+    security_opt:
+      - no-new-privileges:true
+
+# Define custom network
+networks:
+  app-network:
+    driver: bridge
+
+# Define volumes
+volumes:
+  db-data:
+    driver: local
