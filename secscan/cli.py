@@ -109,7 +109,11 @@ def scan(directory, format):
     """
     nginx_files = list(Path(directory).glob("**/nginx.conf"))
     docker_files = list(Path(directory).glob("**/Dockerfile"))
-    compose_files = list(Path(directory).glob("**/docker-compose.yml"))
+    compose_files = []
+    compose_files += list(Path(directory).glob("**/docker-compose.yml"))
+    compose_files += list(Path(directory).glob("**/docker-compose.yaml"))
+    compose_files += list(Path(directory).glob("**/compose.yml"))
+    compose_files += list(Path(directory).glob("**/compose.yaml"))
     kubernetes_files = _find_kubernetes_files(directory)
 
     all_results = []
