@@ -1,4 +1,3 @@
-cat > README.md <<'EOF'
 # Secscan 🔒
 
 [![Tests](https://github.com/z3robytek-lang/Secscan/actions/workflows/tests.yml/badge.svg)](https://github.com/z3robytek-lang/Secscan/actions/workflows/tests.yml)
