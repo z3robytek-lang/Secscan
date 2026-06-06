@@ -2,13 +2,13 @@
 
 [![Tests](https://github.com/z3robytek-lang/Secscan/actions/workflows/tests.yml/badge.svg)](https://github.com/z3robytek-lang/Secscan/actions/workflows/tests.yml)
 
-Security Configuration Validator — validate Nginx, Docker, Kubernetes and more against security best practices and CIS Benchmarks.
+Security Configuration Validator — validate Nginx, Docker, Kubernetes and more against security best practices.
 
 Secscan is a defensive security tool designed to help pentesters, security engineers, DevOps teams and students review infrastructure configuration files and detect common security weaknesses.
 
 ## ✨ Features
 
-- 🔍 Multi-platform support: Nginx and Docker currently implemented
+- 🔍 Multi-platform support: Nginx, Docker and Kubernetes
 - 🎯 Security focused: checks inspired by CIS Benchmarks and hardening best practices
 - 🚀 Easy to use: simple CLI interface
 - 📊 Detailed reports: text and JSON output formats
@@ -70,6 +70,12 @@ Validate docker-compose:
 
 ```bash
 secscan docker docker-compose.yml
+```
+
+Validate a Kubernetes manifest:
+
+```bash
+secscan k8s deployment.yml
 ```
 
 Scan an entire directory:
@@ -151,9 +157,35 @@ docker-compose checks include:
 - Network isolation
 - Resource limits
 
+### `secscan k8s`
+
+Validates Kubernetes YAML manifests.
+
+```bash
+secscan k8s <config_path> [OPTIONS]
+```
+
+Options:
+
+```txt
+--format [text|json]  Output format. Default: text
+--output PATH         Save output to file
+```
+
+Kubernetes checks include:
+
+- Host namespace usage
+- Privileged containers
+- Image tag pinning
+- Privilege escalation
+- Running as non-root
+- Read-only root filesystem
+- Resource limits
+- Possible hardcoded secrets in environment variables
+
 ### `secscan scan`
 
-Batch scan a directory for configuration files.
+Batch scan a directory for supported configuration files.
 
 ```bash
 secscan scan <directory> [OPTIONS]
@@ -164,6 +196,13 @@ Options:
 ```txt
 --format [text|json]  Output format. Default: text
 ```
+
+The scan command currently detects:
+
+- `nginx.conf`
+- `Dockerfile`
+- `docker-compose.yml`
+- Kubernetes `.yml` / `.yaml` files containing `apiVersion` and `kind`
 
 ### `secscan version`
 
@@ -179,43 +218,41 @@ secscan version
 
 ```txt
 ============================================================
-Nginx Configuration Security Validation
+Kubernetes Configuration Security Validation
 ============================================================
 
-Critical Issues: 2
+Critical Issues: 3
 High Issues: 1
-Warnings: 3
-Passed Checks: 8
+Warnings: 4
+Passed Checks: 2
 
 ============================================================
 ISSUES
 ============================================================
 
-[CRITICAL] SSL/TLS Protocols
-  ❌ Issue: ssl_protocols directive is missing
-  💡 Recommendation: Add 'ssl_protocols TLSv1.2 TLSv1.3;' to your nginx config
-  📋 CIS Benchmark: 2.2.1
+[CRITICAL] hostNetwork
+  ❌ Issue: Host network namespace is enabled in Deployment/insecure-nginx
+  💡 Recommendation: Avoid using hostNetwork: true unless it is strictly required.
 
-[HIGH] HSTS
-  ❌ Issue: Strict-Transport-Security header is missing
-  💡 Recommendation: Add 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;'
-  📋 CIS Benchmark: 2.5.1
+[CRITICAL] Privileged Container
+  ❌ Issue: Container nginx in Deployment/insecure-nginx runs in privileged mode
+  💡 Recommendation: Set securityContext.privileged to false or remove it.
+
+[HIGH] Run As Non Root
+  ❌ Issue: Container nginx in Deployment/insecure-nginx is not explicitly configured to run as non-root
+  💡 Recommendation: Set securityContext.runAsNonRoot: true.
+
+[CRITICAL] Hardcoded Secrets
+  ❌ Issue: Possible secret exposed in environment variable ADMIN_PASSWORD in container nginx
+  💡 Recommendation: Use Kubernetes Secrets instead of hardcoded environment variables.
 
 ============================================================
 WARNINGS
 ============================================================
 
-⚠ Server Tokens
-  Issue: Server tokens are not explicitly disabled
-  Recommendation: Add 'server_tokens off;' to hide nginx version
-
-============================================================
-PASSED CHECKS
-============================================================
-
-✓ Access Logging: Access logging is configured
-✓ Error Logging: Error logging is configured
-✓ Timeouts: Timeout configuration: 4/4 configured
+⚠ Image Tag
+  Issue: Container nginx in Deployment/insecure-nginx uses an unpinned image tag: nginx:latest
+  Recommendation: Use a specific image version instead of latest or an implicit latest tag.
 
 ============================================================
 ```
@@ -225,34 +262,32 @@ PASSED CHECKS
 ```json
 {
   "status": "completed",
-  "platform": "nginx",
-  "critical_issues": 1,
+  "platform": "kubernetes",
+  "critical_issues": 3,
   "high_issues": 1,
-  "medium_warnings": 1,
-  "warnings": 3,
-  "passes": 4,
+  "medium_warnings": 4,
+  "warnings": 4,
+  "passes": 2,
   "issues": [
     {
       "severity": "critical",
-      "check": "SSL/TLS Protocols",
-      "issue": "ssl_protocols directive is missing",
-      "recommendation": "Add 'ssl_protocols TLSv1.2 TLSv1.3;' to your nginx config",
-      "cis_benchmark": "2.2.1"
+      "check": "Privileged Container",
+      "issue": "Container nginx in Deployment/insecure-nginx runs in privileged mode",
+      "recommendation": "Set securityContext.privileged to false or remove it."
     }
   ],
   "warnings_list": [
     {
       "severity": "medium",
-      "check": "Server Tokens",
-      "issue": "Server tokens are not explicitly disabled",
-      "recommendation": "Add 'server_tokens off;' to hide nginx version",
-      "cis_benchmark": "2.2.2"
+      "check": "Image Tag",
+      "issue": "Container nginx in Deployment/insecure-nginx uses an unpinned image tag: nginx:latest",
+      "recommendation": "Use a specific image version instead of latest or an implicit latest tag."
     }
   ],
   "passed_checks": [
     {
-      "check": "Access Logging",
-      "message": "Access logging is configured"
+      "check": "hostPID",
+      "message": "hostPID is not enabled in Deployment/insecure-nginx"
     }
   ]
 }
@@ -290,6 +325,21 @@ PASSED CHECKS
 | Resource Limits | Medium | N/A |
 | Network Isolation | Medium | N/A |
 
+### Kubernetes checks
+
+| Check | Severity |
+|---|---:|
+| hostNetwork | Critical |
+| hostPID | Critical |
+| hostIPC | Critical |
+| Privileged Container | Critical |
+| Hardcoded Secrets | Critical |
+| Run As Non Root | High |
+| Image Tag | Medium |
+| Privilege Escalation | Medium |
+| Read Only Root Filesystem | Medium |
+| Resource Limits | Medium |
+
 ## 🛠️ Development
 
 ### Project structure
@@ -305,18 +355,22 @@ Secscan/
 │   └── validators/
 │       ├── __init__.py
 │       ├── nginx_validator.py
-│       └── docker_validator.py
+│       ├── docker_validator.py
+│       └── kubernetes_validator.py
 ├── examples/
 │   ├── nginx.conf
 │   ├── Dockerfile
-│   └── docker-compose.yml
+│   ├── docker-compose.yml
+│   └── deployment.yml
 ├── tests/
 │   ├── test_cli.py
 │   ├── test_nginx_validator.py
-│   └── test_docker_validator.py
+│   ├── test_docker_validator.py
+│   └── test_kubernetes_validator.py
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── setup.py
+├── LICENSE
 ├── .gitignore
 └── README.md
 ```
@@ -347,8 +401,13 @@ pytest
 Current test coverage includes:
 
 - Nginx validator detection for server token exposure
+- Nginx validator detection for missing SSL/TLS protocols
+- Nginx validator pass check for disabled server tokens
 - Docker validator detection for `latest` image tags
+- Docker validator detection for missing `USER` instruction
+- Kubernetes validator detection for privileged containers
 - CLI version command
+- CLI Kubernetes command
 
 ### GitHub Actions
 
@@ -414,12 +473,12 @@ Then open a Pull Request on GitHub.
 
 ## 📝 Roadmap
 
-- Kubernetes validator
 - Apache validator
 - Ansible playbook validator
+- Terraform validator
 - Custom rule support
+- SARIF output
 - Web UI dashboard
-- Database integration for reporting
 - CI/CD integration examples
 - Expand test coverage
 - PyPI release
@@ -430,12 +489,11 @@ Then open a Pull Request on GitHub.
 - OWASP Top 10
 - Nginx Documentation
 - Docker Security Best Practices
+- Kubernetes Security Best Practices
 
 ## ⚖️ License
 
-This project is intended to be released under the MIT License.
-
-If a `LICENSE` file is not present yet, add one before publishing a stable release.
+This project is released under the MIT License. See the `LICENSE` file for details.
 
 ## 👨‍💻 Author
 
@@ -461,4 +519,3 @@ Only scan systems, files and environments that you own or have explicit permissi
 - Discussions: GitHub Discussions
 
 Security is a journey, not a destination. Keep your configurations secure! 🔐
-EOF
