@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insecure-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: insecure-nginx
+  template:
+    metadata:
+      labels:
+        app: insecure-nginx
+    spec:
+      hostNetwork: true
+      containers:
+        - name: nginx
+          image: nginx:latest
+          securityContext:
+            privileged: true
+          env:
+            - name: ADMIN_PASSWORD
+              value: "changeme"
