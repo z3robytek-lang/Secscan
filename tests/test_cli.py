@@ -39,3 +39,18 @@ spec:
 
     assert result.exit_code == 0
     assert "Privileged Container" in result.output
+def test_scan_detects_compose_yaml_file(tmp_path):
+    compose_file = tmp_path / "compose.yaml"
+
+    compose_file.write_text("""
+services:
+  web:
+    image: nginx:latest
+""")
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["scan", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert "1 docker-compose" in result.output
+    assert "compose.yaml" in result.output
